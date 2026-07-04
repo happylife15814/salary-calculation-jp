@@ -36,13 +36,17 @@ def normalize(s):
 
 
 def load_kagi_list():
-    """鍵預かりお礼金対象者リストをファイルから読み込む"""
+    """鍵預かりお礼金対象者リストをC列（3列目）から読み込む"""
     kagi = set()
     wb = load_workbook(KAGI_MASTER)
     ws = wb.active
     for row in ws.iter_rows(min_row=1, values_only=True):
-        if row[0]:
-            kagi.add(normalize(row[0]))
+        val = row[2] if len(row) > 2 else None  # C列（0-indexed=2）
+        if val:
+            n = normalize(val)
+            # ヘッダー行・ラベル行をスキップ
+            if n not in ('月額500円', '担当', '鍵預かり契約lリスト', '鍵預かり契約リスト'):
+                kagi.add(n)
     wb.close()
     print(f'鍵預かりお礼金対象者: {sorted(kagi)}')
     return kagi
