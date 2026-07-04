@@ -175,11 +175,17 @@ def process_kintai(ws_kintai, wages, kaji_wage):
     """勤務表シートから勤務記録を解析する"""
     records = []
     skip_shifts = {'法定休日', '所定休日', '有給休暇', '欠勤', '休日', ''}
+    mtg_found = False  # R列「ミーティング」フラグ
 
     for row in ws_kintai.iter_rows(min_row=11, max_row=50, values_only=True):
         date_val = row[0] if len(row) > 0 else None
         shift_val = row[1] if len(row) > 1 else None
         hours_val = row[10] if len(row) > 10 else None
+        r_col_val = row[17] if len(row) > 17 else None  # R列（18列目、0-indexed=17）
+
+        # R列に「ミーティング」があればフラグを立てる
+        if r_col_val and 'ミーティング' in str(r_col_val):
+            mtg_found = True
 
         if not date_val or not shift_val:
             continue
@@ -201,13 +207,10 @@ def process_kintai(ws_kintai, wages, kaji_wage):
 
         if category == 'kaji':
             wage = kaji_wage
-        elif category == 'mtg':
-            wage = 1800
-            hours = 0.0
         elif category == 'unknown':
             wage = 0
 
-        payment = hours * wage if category not in ('mtg', 'unknown') else (1800 if category == 'mtg' else 0)
+        payment = hours * wage if category != 'unknown' else 0
 
         records.append({
             'date': date_val,
@@ -217,6 +220,18 @@ def process_kintai(ws_kintai, wages, kaji_wage):
             'wage': wage or 0,
             'payment': payment,
             'row_data': row,
+        })
+
+    # R列「ミーティング」があればMTGレコードを追加
+    if mtg_found:
+        records.append({
+            'date': None,
+            'shift': 'MTG',
+            'category': 'mtg',
+            'hours': 0.0,
+            'wage': 1800,
+            'payment': 1800,
+            'row_data': (),
         })
 
     return records
